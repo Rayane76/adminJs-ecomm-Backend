@@ -23,7 +23,7 @@ const OrderSchema = mongoose.Schema({
         type: String,
         required: true
     },
-    email:{
+    tel2:{
         type: String,
     },
     articles: [{

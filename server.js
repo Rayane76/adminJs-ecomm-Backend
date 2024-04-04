@@ -12,7 +12,11 @@ import bodyParser from "body-parser"
 import bcrypt from "bcrypt"
 import cors from "cors"
 import multer from 'multer'
+import session from 'express-session'
 import Order from './models/order.js'
+import { default as connectMongoDBSession} from 'connect-mongodb-session';
+import { Router } from 'express'
+
 
 
 const storage = multer.diskStorage({
@@ -38,12 +42,29 @@ AdminJS.registerAdapter({
     Database: AdminJSMongoose.Database,
   })
 
+  const authenticate = async (username, password) => {
+    const admin = await Admin.findOne({username: username});
+    if(!admin){
+      //res.send("Wrong credentials")
+      console.log("Wrond credentials")
+      return null;
+    }
+    const isCorrect = await bcrypt.compare(password,admin.password);
+    if(!isCorrect){
+      //res.send("Wrong Password");
+      console.log("Wrong Password")
+      return null;
+    }
+
+      console.log("successfully logged in");
+      return Promise.resolve(admin);
+  }
+
 const start = async () => {
   const app = express()
   app.use(cors());
   app.use(express.json());
   await mongoose.connect('mongodb://127.0.0.1:27017/stageEcomm')
-  app.use(bodyParser.urlencoded({ extended: false }))
 
   const adminOptions = {
     rootPath: '/admin',
@@ -81,9 +102,53 @@ const start = async () => {
     componentLoader,
   })
 
-  const adminRouter = AdminJSExpress.buildRouter(admin)
+
+  const MongoDBStore = connectMongoDBSession(session);
+
+  var store = new MongoDBStore({
+    uri: 'mongodb://127.0.0.1:27017/stageEcomm',
+    collection: 'mySessions'
+  });
+  store.on('error', function(error) {
+    console.log(error);
+  });
+
+  // const adminRouter = AdminJSExpress.buildRouter(admin)
+
+  const adminRouter = AdminJSExpress.buildAuthenticatedRouter(
+    admin,
+    {
+      authenticate,
+      cookieName: 'adminjs',
+      cookiePassword: 'sessionsecret',
+    },
+      express.Router().get("/admin", function(req,res){
+        res.redirect("/admin");
+      }),
+    {
+      store: store,
+      resave: true,
+      saveUninitialized: true,
+      secret: 'sessionsecret',
+      cookie: {
+        // httpOnly: true,
+        // secure: true,
+      },
+      name: 'adminjs',
+    }
+  )
+
+
   app.use('/admin', adminRouter)
 
+
+  app.use(bodyParser.urlencoded({ extended: false }))
+
+
+
+  app.get("/admin",async function (req,res){
+
+  })
 
   app.post("/findAdmin", async function (req,res){
   
@@ -176,7 +241,7 @@ const start = async () => {
       wilaya: order.wilaya,
       commune: order.data.commune,
       tel: order.data.tel,
-      email: order.data.email,
+      tel2: order.data.tel2,
       articles: articles,
       totalPrice: order.total,
     })
