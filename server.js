@@ -169,31 +169,41 @@ const start = async () => {
   })
 
   app.post("/uploadImages",upload.array("allImages"),async function(req,res){
-    //  console.log(req.body.imageId);
      const allImages = [];
    for (var i=0;i<req.files.length;i++){
     allImages.push(req.files[i].filename);
    }
-  //  console.log(allImages);
-    // console.log(req.body.articleId);
     try{
-      const article = await Article.findOne({_id: req.body.articleId});
-      // console.log(article);
-        for (let index = 0; index < req.body.imageId.length; index++) {
-          if(req.body.imageId[index] === "0"){
-            article.mainSize.image = allImages[index];
+      const imagesIds =  JSON.parse(JSON.stringify(req.body.imageId));
+       const article = await Article.findOne({_id: req.body.articleId});
+
+       if (typeof imagesIds === 'string'){
+          if(imagesIds === '0'){
+           article.mainSize.image = allImages[0];
           }
-        }
-      
-        for (let i = 0; i < article.sizes.length; i++) {
-          for (let j = 0; j < req.body.imageId.length; j++) {
-            if(article.sizes[i]._id.toString() === req.body.imageId[j]){
-              article.sizes[i].image = allImages[j];
-            } 
-          } 
-        }
-         article.save();
-        //  console.log(article);
+          else{
+            for (let index = 0; index < article.sizes.length; index++) {
+              if(article.sizes[index]._id.toString() === imagesIds){
+                article.sizes[index].image = allImages[0];
+              }
+            }
+          }
+       }
+       else{
+           for (let index = 0; index < imagesIds.length; index++) {
+              if(imagesIds[index] === '0'){
+                article.mainSize.image = allImages[index];
+              }
+              else{
+                for (let j = 0; j < article.sizes.length; j++) {
+                  if(imagesIds[index] === article.sizes[j]._id.toString()){
+                      article.sizes[j].image = allImages[index];
+                  }
+                }
+              }
+           }
+       }
+       article.save();
     }
     catch(error){
       console.log(error)
@@ -218,6 +228,16 @@ const start = async () => {
       console.log(error)
     }
   });
+
+  app.get("/getArticleToUpload/:id",async function (req,res){
+    try {
+      const id = req.params.id;
+      const result = await Article.findOne({_id: id})
+      res.send(result);
+    } catch (error) {
+      console.log(error)
+    }
+  })
 
 
   app.post("/addOrder", async function (req,res){
